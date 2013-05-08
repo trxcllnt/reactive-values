@@ -11,7 +11,7 @@ package trxcllnt
 	
 	use namespace flash_proxy
 	
-	public class Store extends Proxy
+	public dynamic class Store extends Proxy
 	{
 		public function Store()
 		{
@@ -64,8 +64,8 @@ package trxcllnt
 				propNames.push(name.toString());
 			
 			if(value is String) {
-				const val:* = process(name)(value);
-				properties[name] = val === null ? process(value)(name) : val;
+				const val:Number = process(name, value);
+				properties[name] = val == val ? val : value;
 			} else {
 				properties[name] = value;
 			}
@@ -93,43 +93,40 @@ package trxcllnt
 			processors.push([pattern, func]);
 		}
 		
-		private function process(input:String):Function {
+		private function process(name:String, value:String):Number {
 			
-			const pair:Array = detect(processors, sequence(head, asx.fn.callProperty('test', input))) as Array;
+			const pair:Array = detect(processors, sequence(head, asx.fn.callProperty('test', value))) as Array;
 			
-			if(pair == null) return K(null);
+			if(pair == null) return NaN;
 			
-			const self:Store = this;
 			const pattern:RegExp = pair[0];
 			const func:Function = pair[1];
 			
-			return function(other:*, ...args):* {
-				return func.call(self, pattern, input, other) || other;
-			};
+			return func.call(this, pattern, name, value);
 		}
 		
-		private function getBase(name:String):* {
-			return hasOwnProperty(name) ? this[name] : hasOwnProperty('fontSize') ? this['fontSize'] : 12;
+		private function getBase(name:String):Number {
+			return this.hasOwnProperty(name) ? this[name] : this.hasOwnProperty('fontSize') ? this['fontSize'] : 12;
 		}
 		
-		addProcessor(/%/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, p.exec(v).index));
+		addProcessor(/\d+\s*?%/i, function(p:RegExp, name:String, v:String):Number {
+			return this.getBase(name) * parseFloat(v.substring(0, (/%/i).exec(v).index));
 		});
 		
-		addProcessor(/px/i, function(p:RegExp, name:String, v:String):Number {
-			return parseFloat(v.substring(0, p.exec(v).index));
+		addProcessor(/\d+\s*?px/i, function(p:RegExp, name:String, v:String):Number {
+			return parseFloat(v.substring(0, (/px/i).exec(v).index));
 		});
 		
-		addProcessor(/pt/i, function(p:RegExp, name:String, v:String):Number {
-			return parseFloat(v.substring(0, p.exec(v).index)) / 72 * screenDPI;
+		addProcessor(/\d+\s*?pt/i, function(p:RegExp, name:String, v:String):Number {
+			return parseFloat(v.substring(0, (/pt/i).exec(v).index)) / 72 * screenDPI;
 		});
 		
-		addProcessor(/em/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, p.exec(v).index));
+		addProcessor(/\d+\s*?em/i, function(p:RegExp, name:String, v:String):Number {
+			return this.getBase(name) * parseFloat(v.substring(0, (/em/i).exec(v).index));
 		});
 		
-		addProcessor(/ex/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, p.exec(v).index)) * 0.5;
+		addProcessor(/\d+\s*?ex/i, function(p:RegExp, name:String, v:String):Number {
+			return this.getBase(name) * parseFloat(v.substring(0, (/ex/i).exec(v).index)) * 0.5;
 		});
 		
 		addProcessor(/\#/i, function(p:RegExp, name:String, v:String):Number {
