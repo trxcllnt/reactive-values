@@ -13,8 +13,6 @@ package trxcllnt
 	import asx.fn.callProperty;
 	import asx.fn.callXMLProperty;
 	import asx.fn.not;
-	import asx.fn.partial;
-	import asx.object.newInstance_;
 	
 	import flash.utils.*;
 	
@@ -89,7 +87,9 @@ package trxcllnt
 			
 			return properties.length == 1 ?
 				obs :
-				obs.combineLatest(combine(properties.slice(1)), partial(newInstance_, Array));
+				obs.combineLatest(combine(properties.slice(1)), function(a:Array, b:Array):Array{
+					return (a[0] is Values && b[0] is Values) ? [a, b] : [a].concat(b);
+				});
 		}
 		
 		public function mergeWith(object:Object):Values
