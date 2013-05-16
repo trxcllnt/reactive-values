@@ -25,6 +25,14 @@ package trxcllnt
 			return propNames.concat();
 		}
 		
+		public function toString():String
+		{
+			const strings:Array = map(keys, function(prop:String):String {
+				return '\t' + prop + ': ' + getProperty(prop).toString();
+			});
+			return '{\n' + strings.join(';\n') + ';\n}';
+		}
+		
 		override flash_proxy function getProperty(name:*):*
 		{
 			return properties[name];
