@@ -2,6 +2,7 @@ package trxcllnt
 {
 	import asx.array.detect;
 	import asx.array.head;
+	import asx.array.map;
 	import asx.fn.K;
 	import asx.fn.sequence;
 	
@@ -25,17 +26,16 @@ package trxcllnt
 			return propNames.concat();
 		}
 		
-		public function toString():String
-		{
-			const strings:Array = map(keys, function(prop:String):String {
-				return '\t' + prop + ': ' + getProperty(prop).toString();
-			});
-			return '{\n' + strings.join(';\n') + ';\n}';
-		}
-		
 		override flash_proxy function getProperty(name:*):*
 		{
-			return properties[name];
+			const value:* = properties[name];
+			
+			if(value is String) {
+				const val:* = process(name, value);
+				return val === val ? val : value;
+			}
+			
+			return value;
 		}
 		
 		override flash_proxy function hasProperty(name:*):Boolean
@@ -71,12 +71,7 @@ package trxcllnt
 			if(!properties.hasOwnProperty(name))
 				propNames.push(name.toString());
 			
-			if(value is String) {
-				const val:Number = process(name, value);
-				properties[name] = val == val ? val : value;
-			} else {
-				properties[name] = value;
-			}
+			properties[name] = value;
 		}
 		
 		override flash_proxy function nextName(index:int):String
@@ -101,7 +96,7 @@ package trxcllnt
 			processors.push([pattern, func]);
 		}
 		
-		private function process(name:String, value:String):Number {
+		private function process(name:String, value:String):* {
 			
 			const pair:Array = detect(processors, sequence(head, asx.fn.callProperty('test', value))) as Array;
 			
@@ -114,7 +109,7 @@ package trxcllnt
 		}
 		
 		private function getBase(name:String):Number {
-			return this.hasOwnProperty(name) ? this[name] : this.hasOwnProperty('fontSize') ? this['fontSize'] : 12;
+			return name == 'fontSize' ? 12 : this.hasOwnProperty('fontSize') ? this['fontSize'] : 12;
 		}
 		
 		addProcessor(/\d+\s*?%/i, function(p:RegExp, name:String, v:String):Number {
@@ -139,6 +134,14 @@ package trxcllnt
 		
 		addProcessor(/\#/i, function(p:RegExp, name:String, v:String):Number {
 			return uint('0x' + v.substring(1));
+		});
+		
+		addProcessor(/\d+/i, function(p:RegExp, name:String, v:String):Number {
+			return parseFloat(v);
+		});
+		
+		addProcessor(/(\'|\")/i, function(p:RegExp, name:String, v:String):String {
+			return v.replace(p, '');
 		});
 	}
 }
