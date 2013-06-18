@@ -7,6 +7,7 @@ package trxcllnt
 	import asx.fn.sequence;
 	
 	import flash.system.Capabilities;
+	import flash.utils.ByteArray;
 	import flash.utils.Proxy;
 	import flash.utils.flash_proxy;
 	
@@ -21,6 +22,20 @@ package trxcllnt
 		
 		protected var properties:Object = {};
 		protected var propNames:Array = [];
+		
+		public function clone():Store {
+			
+			const store:Store = new Store();
+			
+			const bytes:ByteArray = new ByteArray();
+			bytes.writeObject(properties);
+			bytes.position = 0;
+			
+			store.propNames = propNames.concat();
+			store.properties = bytes.readObject();
+			
+			return store;
+		}
 		
 		public function get keys():Array {
 			return propNames.concat();
