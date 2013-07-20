@@ -1,10 +1,10 @@
 package trxcllnt
 {
-	import asx.array.detect;
+	import asx.array.compact;
 	import asx.array.head;
 	import asx.array.map;
-	import asx.fn.K;
-	import asx.fn.sequence;
+	import asx.fn.callFunction;
+	import asx.fn.noop;
 	
 	import flash.system.Capabilities;
 	import flash.utils.ByteArray;
@@ -43,14 +43,7 @@ package trxcllnt
 		
 		override flash_proxy function getProperty(name:*):*
 		{
-			const value:* = properties[name];
-			
-			if(value is String) {
-				const val:* = process(name, value);
-				return val === val ? val : value;
-			}
-			
-			return value;
+			return properties[name];
 		}
 		
 		override flash_proxy function hasProperty(name:*):Boolean
@@ -60,9 +53,17 @@ package trxcllnt
 		
 		override flash_proxy function callProperty(name:*, ... parameters):*
 		{
-			if(hasProperty(name) == false) return null;
+			const method:String = name.toString(); 
 			
-			const val:* = properties[name];
+			if(method == 'processName') return processName.apply(this, parameters);
+			if(method == 'processValue') return processValue.apply(this, parameters);
+			if(method == 'getBase') return getBase.apply(this, parameters);
+			if(method == 'setPropertyPlain') return setPropertyPlain.apply(this, parameters);
+			if(method == 'setProperty') return setProperty.apply(this, parameters);
+			
+			if(hasProperty(method) == false) return null;
+			
+			const val:* = properties[method];
 			
 			return (val is Function) ? val.apply(this, parameters) : val;
 		}
@@ -83,6 +84,14 @@ package trxcllnt
 		
 		override flash_proxy function setProperty(name:*, value:*):void
 		{
+			(value is String) == false ?
+				setPropertyPlain(name, value) :
+				(processName(name, value) || processValue(name, value)) == false ?
+					setPropertyPlain(name, value) :
+					noop();
+		}
+		
+		protected function setPropertyPlain(name:*, value:*):void {
 			if(!properties.hasOwnProperty(name))
 				propNames.push(name.toString());
 			
@@ -104,59 +113,54 @@ package trxcllnt
 			return properties[propNames[index - 1]];
 		}
 		
-		private static const processors:Array = [];
-		private static const screenDPI:Number = Capabilities.screenDPI;
+		protected static const nameProcessors:Array = [];
+		protected static const valueProcessors:Array = [];
+		protected static const screenDPI:Number = Capabilities.screenDPI;
 		
-		public static function addProcessor(pattern:RegExp, func:Function):void {
-			processors.push([pattern, func]);
+		public static function addNameProcessor(func:Function):void {
+			nameProcessors.push(func);
 		}
 		
-		private function process(name:String, value:String):* {
-			
-			const pair:Array = detect(processors, sequence(head, asx.fn.callProperty('test', value))) as Array;
-			
-			if(pair == null) return NaN;
-			
-			const pattern:RegExp = pair[0];
-			const func:Function = pair[1];
-			
-			return func.call(this, pattern, name, value);
+		public static function addValueProcessor(func:Function):void {
+			valueProcessors.push(func);
 		}
 		
-		private function getBase(name:String):Number {
-			return name == 'fontSize' ? 12 : this.hasOwnProperty('fontSize') ? this['fontSize'] : 12;
+		protected static function findNameProcessor(name:String):Function {
+			return head(compact(map(nameProcessors, callFunction(name)))) as Function;
 		}
 		
-		addProcessor(/\d+\s*?%/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, (/%/i).exec(v).index));
-		});
+		protected static function findValueProcessor(value:String):Function {
+			return head(compact(map(valueProcessors, callFunction(value)))) as Function;
+		}
 		
-		addProcessor(/\d+\s*?px/i, function(p:RegExp, name:String, v:String):Number {
-			return parseFloat(v.substring(0, (/px/i).exec(v).index));
-		});
+		protected function processName(name:String, value:String):Boolean {
+			
+			const processor:Function = findNameProcessor(name);
+			
+			if(processor == null) return false;
+			
+			processor.call(this, name, value);
+			
+			return true;
+		}
 		
-		addProcessor(/\d+\s*?pt/i, function(p:RegExp, name:String, v:String):Number {
-			return parseFloat(v.substring(0, (/pt/i).exec(v).index)) / 72 * screenDPI;
-		});
+		protected function processValue(name:String, value:String):Boolean {
+			
+			const processor:Function = findValueProcessor(value);
+			
+			if(processor == null) return false;
+			
+			processor.call(this, name, value);
+			
+			return true;
+		}
 		
-		addProcessor(/\d+\s*?em/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, (/em/i).exec(v).index));
-		});
-		
-		addProcessor(/\d+\s*?ex/i, function(p:RegExp, name:String, v:String):Number {
-			return this.getBase(name) * parseFloat(v.substring(0, (/ex/i).exec(v).index)) * 0.5;
-		});
-		
-		addProcessor(/\#/i, function(p:RegExp, name:String, v:String):Number {
-			return uint('0x' + v.substring(1));
-		});
-		
-		addProcessor(/\d+/i, function(p:RegExp, name:String, v:String):Number {
-			return parseFloat(v);
-		});
-		
-		addProcessor(/(\'|\")/i, function(p:RegExp, name:String, v:String):String {
-			return v.replace(p, '');
-		});
+		protected function getBase(name:String):Number {
+			return this.hasOwnProperty('fontSize') == true ?
+				this['fontSize'] :
+				this.hasOwnProperty('baseFontSize') == true ?
+					this['baseFontSize'] :
+					12;
+		}
 	}
 }
